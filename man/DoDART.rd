@@ -2,14 +2,14 @@
 \alias{DoDART}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
-Main engine function for denoising algorithm based on relevance network topology
+Main function of DART
 }
 \description{
-This is the main engine function, given the expression data and model pathway signature and desired false discovery rate, DoDART will perform denosing algorithm, which is the whole sequence of functions: 
-(1) BuildRN: this builds a relevance correlation network over the model pathway signature in the data set in which the pathway activity estimate is desired. 
-(2) EvalConsNet: this evaluates the consistency of the inferred network with the prior information in the model pathway signature. Only if the consistency score is higher than expected by random chance (see Pval(consist) from output: netcons), can the model signature be used to infer pathway activity. 
-(3) PruneNet: this obtains the pruned, i.e consistent, network, in which any edge represents a significant correlation in gene expression whose directionality agrees with that predicted by the prior information. 
-(4) MaxCon: this function builds the maximally connected pruned network from the output of PruneNet, and this subnetwork is then used for pathway activity estimation using a metric that takes the degree distribution of the nodes (genes) in the subnetwork into account. 
+This is the main function implementing DART. Given a data matrix and a model (pathway) signature it will construct the relevance correlation network for the genes in the signature over the data, evaluate the consistency of the correlative patterns with those predicted by the model signature, filter out the noise and finally obtain estimates of pathway activity for each individual sample. Specifically, it will call and run the following functions:
+(1) \code{BuildRN:} This function builds a relevance correlation network of the model pathway signature in the data set in which the pathway activity estimate is desired. We point that this step is totally unsupervised and does not use and phenotypic information of the samples. 
+(2) \code{EvalConsNet:} This function evaluates the consistency of the inferred network with the prior information of the model pathway signature. The up/down regulatory pattern given by the model signature implies predictions about the directionality of the gene-gene correlations in the independent data set. For instance, if  gene "A" is upregulated and gene "B" is downregulated, then assuming that the model signature has any relevance in the independent data set, we would expect genes "A" and "B" to be anti-correlated. Thus, a consistency score can be computed. Only if the consistency score is higher than the score expected by random chance is it recommended that the model signature be used to infer pathway activity. 
+(3) \code{PruneNet:} This function obtains the pruned, i.e consistent, network, in which any edge represents a significant correlation in gene expression whose directionality agrees with that predicted by the prior information. This is the denoising step of the algorithm. The function returns the whole pruned network and its maximally connected component.
+(4) \code{PredActScore:} Given the adjacency matrix of the maximally connected consistent subnetwork and given the regulatory weights of the corresponding model pathway signature, this function estimates a pathway activation score in each sample. This function can also be used to infer pathway activity in another independent data set using the inferred subnetwork.
 }
 \usage{
 DoDART(data.m, sign.v, fdr)
@@ -17,8 +17,8 @@ DoDART(data.m, sign.v, fdr)
 %- maybe also 'usage' for other objects documented here.
 \arguments{
 
-  \item{data.m}{Data matrix: rows label features, columns label samples. It is assumed that number of features is much larger than number of samples.}
-  \item{sign.v}{Model pathway signature vector: elements are numeric, names of sign.v are gene names (must match rows of data.m)}
+  \item{data.m}{Data matrix: rows label features, columns label samples. It is assumed that number of features is much larger than number of samples. Rownames of \code{data.m} must be valid unique gene (probe) identifiers.}
+  \item{sign.v}{Model pathway signature vector: elements are numeric and represent the regulatory weights (i.e if up or downregulated). Names of \code{sign.v} are the gene identifiers, which must match the gene (probe) identifiers of the rows of \code{data.m}}
   \item{fdr}{Desired false discovery rate which determines allowed false positive in the relevance network.}
 
 }
@@ -26,22 +26,16 @@ DoDART(data.m, sign.v, fdr)
 %%  ~~ If necessary, more details than the description above ~~
 }
 \value{
-  \item{sign}{model pathway signature found in data}
-  \item{c}{Correlation matrix}
-  \item{netsign}{A matrix of dimension 2 times number of edges in network comparing directionality of model pathway signature and that in the observed data}
-  \item{netcons}{Vector summarising properties of network and the consistency with model pathway signature: nG is the number of genes, nE is the number of edges(significant correlations) of relevance network generated by function BuildRN, fE is the ratio of the number of the edges of relevance network to the number of the edges between all the genes in the signatures,
-   fconsE is the ratio of the number of nE,which are consistent with the prior information (i.e. sign of the observed correlation equals to the signs predicted by the model) to the number of edges of relevance network, Pval(consist) is a p-value which reflects the significance of fconsE,it is derived from randomisations that yielded an average connectivity larger than the observed one}
-  \item{consist.score}{Ratio of pruned network to unpruned network}
-  \item{pradj}{Inferred relevance network adjacency matrix}
- 
-  
- 
+  \item{netcons}{A vector summarising the properties of the correlation network and the consistency with the model pathway signature: nG is the number of genes in the signature, nE is the number of edges of the relevance network generated by function \code{BuildRN}, fE is the ratio of the number of edges in the relevance network to the maximum possible number, fconsE is the fraction of edges whose sign (i.e sign of correlation) is the same as the directionality predicted by the model signature, Pval(consist) is a p-value reflecting the significance of fconsE, and is estimated as the fraction of randomisations that yielded an average connectivity larger than the observed one.}
+  \item{adj}{Adjacency matrix of maximally connected consistent relevance network.}
+  \item{sign}{Model pathway signature vector of genes found in data set and in maximally connected component.}
+  \item{score}{Predicted activation scores of the model signature in the samples of data set \code{data.m}.}
+  \item{degree}{Degrees/connectivities of the genes in the DART network.}
 }
 \references{
 {Jiao Y, Lawler K, Patel GS, Purushotham A, Jones AF, Grigoriadis A, Ng T, Teschendorff AE. Denoising algorithm based on relevance network topology improves molecular pathway activity inference. Submitted.}
 
-{Teschendorff AE, Gomez S, Arenas A, El-Ashry D, Schmidt M, et al. (2010) Improved prognostic classification of breast
-cancer defined by antagonistic activation patterns of immune response pathway modules. BMC Cancer 10:604.}
+{Teschendorff AE, Gomez S, Arenas A, El-Ashry D, Schmidt M, et al. (2010) Improved prognostic classification of breast cancer defined by antagonistic activation patterns of immune response pathway modules. BMC Cancer 10:604.}
 }
 \author{
 Andrew E Teschendorff, Yan Jiao
@@ -58,17 +52,20 @@ Andrew E Teschendorff, Yan Jiao
 \examples{
   
 ### Example
-### load in example data
-library(DARTData)
+### load in example data:
+data(dataDART);
+### dataDART$data: mRNA expression data of 67 ER negative breast cancer samples.
+### dataDART$pheno: 51 basals and 16 HER2+ (ERBB2+).
+### dataDART$sign: perturbation signature of ERBB2 activation.
 
-data(data.m)
-data(sign.v)
-### doDART (Given the expression data and model pathway signature and desired false discovery rate, DoDART will perform denosing algorithm:running through BuildRN,EvalConsNet and PruneNet)
-DART.o <- DoDART(data.m,sign.v,fdr=0.05)
-### Results on consistency of inferred networks with model pathway signature
-print(DART.o$netcons)
-### Consistency score of inferred networks with model pathway signature
-print(DART.o$consist.score)
+
+### Using DoDART
+dart.o <- DoDART(dataDART$data,dataDART$sign,fdr=0.05);
+### check that activation is higher in HER2+ compared to basals
+boxplot(dart.o$score ~ dataDART$pheno);
+pv <- wilcox.test(dart.o$score ~ dataDART$pheno)$p.value;
+text(x=1.5,y=10,labels=paste("P=",pv,sep=""));
+
 }
 
 \keyword{network}

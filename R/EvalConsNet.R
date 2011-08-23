@@ -39,36 +39,28 @@ edges.idx <- which(is.na(signedgeADJ.v)==FALSE);
 ne <- length(edges.idx);
 netconsist.v[2] <- ne;
 netconsist.v[3] <- ne/(0.5*ng*(ng-1));
-netconsist.v[4] <- length(which(signedgeADJ.v[edges.idx]==signedgePRIOR.v[edges.idx]))/ne;  #AET original one
-#netconsist.v[4] <- length(which(signedgeADJ.v[edges.idx]==signedgePRIOR.v[edges.idx]))/(0.5*ng*(ng-1)) ;      #yan modified
+netconsist.v[4] <- length(which(signedgeADJ.v[edges.idx]==signedgePRIOR.v[edges.idx]))/ne;  
 netsignedge.m <- rbind(signedgePRIOR.v,signedgeADJ.v);
 rownames(netsignedge.m) <- c("PRIOR","ADJ");
+
 ## estimate significance of fraction of consistent edges: derive p-value
-## randomly assign directionality values depending on data matrix
+## first estimate probability that a correlation is positive
+
 tmp.idx <- sample(1:nrow(data.m),min(c(1000,nrow(data.m))),replace=FALSE);
 tmpC.m <- cor(t(data.m[tmp.idx,]));
 w.v <- summary(factor(sign(as.vector(tmpC.m[upper.tri(tmpC.m)]))));
-if(length(w.v)==1){
-  w <- 1;
-}else {
-  w <- w.v[2]/sum(w.v);
-}
+w <- w.v[match(1,names(w.v))]/sum(w.v);
+
 
 permedgesADJ.v <- rep(NA,0.5*ng*(ng-1));
 np <- 1000;
 count <- 0;
 for(p in 1:np){
-#round(w*length(edges.idx))->w1     #yan
-#length(edges.idx)-w1->w2        #yan
- permedgesADJ.v[edges.idx] <- c(-1,1)[rbinom(length(edges.idx),1,w)+1];#AET original one
-  #permedgesADJ.v[edges.idx] <- sample(c(rep(1,w1),rep(-1,w2)));
-  netconsist <- length(which(permedgesADJ.v[edges.idx]==signedgePRIOR.v[edges.idx]))/ne;   # AET original one
-  #netconsist <- length(which(permedgesADJ.v[edges.idx]==signedgePRIOR.v[edges.idx]))/(0.5*ng*(ng-1)) ;    #yan modified
-  if(netconsist > netconsist.v[4]){   #AET original one
-   #if(netconsist > w){
+ permedgesADJ.v[edges.idx] <- c(-1,1)[rbinom(length(edges.idx),1,w)+1];
+ netconsist <- length(which(permedgesADJ.v[edges.idx]==signedgePRIOR.v[edges.idx]))/ne;   
+ if(netconsist > netconsist.v[4]){
    count <- count+1;
-  }
-# print(netconsist)
+ }
 }
 netconsist.v[5] <- count/np;
 

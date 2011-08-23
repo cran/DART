@@ -1,28 +1,39 @@
-PredActScore<- function(pradj.m,sign.v,test.data){
+PredActScore <- function(pradjMC.m,signMC.v,data.m){
 
+  if(length(which(is.na(data.m))) > 0){
+    print("missing data in data.m must be imputed before proceeding");
+  }
+  ### next standardize rows of data matrix
+  StdRow <- function(tmp.v){
+    out.v <- (tmp.v-mean(tmp.v))/sqrt(var(tmp.v));
+    return(out.v);
+  }
+  stdata.m <- data.m;
+  for(r in 1:nrow(data.m)){
+    stdata.m[r,] <- StdRow(data.m[r,]);
+  }
   
+    
+  match(rownames(pradjMC.m),rownames(stdata.m)) -> idx;
+  which(is.na(idx)) -> idx.na
+  naF <- round(length(idx.na)/length(idx),2)
+  print(paste("Found ",100-100*naF,"% of maximally connected pruned network genes in the data",sep=""));
   
-  #pradj.m<-Dart.o$pradj
-  #sign.v<-Dart.o$sign
-  match(as.numeric(rownames( pradj.m)),as.numeric(rownames(test.data)))->idx
-  which(is.na(idx)) ->idx.na
-  gene.percent<-round(length(idx.na)/length(idx),2)
-  #paste("Found ",100*round(length(rep.idx)/length(sign.v),2),"% of signature genes in data matrix",sep="")
-  print(paste("Found ",100-100*gene.percent,"%of signature genes in test data set"));
-  if (gene.percent==1)
-  {
-  print("no gene overlap between test data set and prunned network, can't perform prediction")
-  }else{
-  setdiff(c(1:length(idx)),idx.na)->idx.sel
-  test.data.sel<-test.data[idx[idx.sel],]
-  pradj.m[idx.sel,idx.sel]-> pradj.sel
- score<- (colSums((pradj.sel)%*% ((sign.v[idx.sel])*test.data.sel)))
- n.node<-dim(pradj.sel)[1]-length(which( colSums(pradj.sel)==0))
-edge.n<-colSums(pradj.m)
- score<-(sqrt(n.node)*score)/(sqrt(sum(edge.n*edge.n)))
+  if (naF==1){
+   print("no gene overlap between new data set and pruned network, can't perform prediction")
+  }
+  else {
+
+  setdiff(1:length(idx),idx.na) -> idx.sel;
+  tmp.m <- stdata.m[idx[idx.sel],];
+  tmpA.m <- pradjMC.m[idx.sel,idx.sel];
+  k.v <- apply(tmpA.m,1,sum);  
+  genescores.m <- k.v*sign(signMC.v[idx.sel])*tmp.m;
+  score.v <- apply(genescores.m,2,sum)/sqrt(sum(k.v*k.v));
+  
+
   }
 
 
-return(list(pradj=pradj.m,s=sign.v[idx.sel],score=score));
-
+  return(list(adj=tmpA.m,sign=signMC.v[idx.sel],score=score.v,degree=k.v));
 }

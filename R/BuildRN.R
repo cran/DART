@@ -16,20 +16,21 @@ function(data.m,sign.v,fdr=0.05){
   pv.v <- as.vector(pv.m[upper.tri(pv.m)]);
   ### now correct for multiple testing
   qv.v <- p.adjust(pv.v,method="BH");
-    qv.m <- pv.m;
-  qv.m[cor.m<3] <- 0
- qv.m[upper.tri(qv.m)] <- qv.v;
- qv.m<-qv.m+t(qv.m)
+  qv.m <- pv.m;
+  qv.m[cor.m<3] <- 0; ## set all elements to zero
+  qv.m[upper.tri(qv.m)] <- qv.v;
+  qv.m <- qv.m+t(qv.m)
+  diag(qv.m) <- 1;
   ### define relevance network
   adj.m <- cor.m;
-adj.m[cor.m<3] <- 0; ### a trick to set all elements to zero
+  adj.m[cor.m<3] <- 0; ### set all elements to zero
   adj.m[qv.m < fdr] <- 1;
   ### test symmetry
   if(identical(adj.m,t(adj.m))==FALSE){
     print("PROBLEM:adjaceny matrix is not symmetric");
   }
-   diag(adj.m)<-0
-  return(list(adj=adj.m,s=sign.v[rep.idx],sd=tmp.m,c=cor.m,d=data.m, rep.idx= rep.idx));
+  diag(adj.m)<- 0;
+  return(list(adj=adj.m,s=sign.v[rep.idx],sd=tmp.m,c=cor.m,d=data.m,rep.idx=rep.idx));
 
 }
 
